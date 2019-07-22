@@ -1,0 +1,114 @@
+Machine Learning with K Nearest Neighbors¶
+In this micro-project, we'll use the KNN algorithm to classify instances from a fake dataset into one or the other target class.
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+%matplotlib inline
+Data
+df = pd.read_csv('data/KNN_Project_Data')
+df.head()
+XVPM	GWYH	TRAT	TLLZ	IGGA	HYKR	EDFS	GUUB	MGJM	JHZC	TARGET CLASS
+0	1636.670614	817.988525	2565.995189	358.347163	550.417491	1618.870897	2147.641254	330.727893	1494.878631	845.136088	0
+1	1013.402760	577.587332	2644.141273	280.428203	1161.873391	2084.107872	853.404981	447.157619	1193.032521	861.081809	1
+2	1300.035501	820.518697	2025.854469	525.562292	922.206261	2552.355407	818.676686	845.491492	1968.367513	1647.186291	1
+3	1059.347542	1066.866418	612.000041	480.827789	419.467495	685.666983	852.867810	341.664784	1154.391368	1450.935357	0
+4	1018.340526	1313.679056	950.622661	724.742174	843.065903	1370.554164	905.469453	658.118202	539.459350	1899.850792	0
+Standardizing the Variables
+Because of the type of data we're dealing with, it's important to standardize the variables before training our model. Skewed distribution of variables makes it harder for our model to deal with it.
+
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+df.columns
+Index(['XVPM', 'GWYH', 'TRAT', 'TLLZ', 'IGGA', 'HYKR', 'EDFS', 'GUUB', 'MGJM',
+       'JHZC', 'TARGET CLASS'],
+      dtype='object')
+Of course, we don't need to scale the target class, so we'll ignore that during scaler fitting.
+
+scaler.fit(df.drop('TARGET CLASS',axis=1))
+StandardScaler(copy=True, with_mean=True, with_std=True)
+Now we'll use the .transform() method to transform the features to a scaled version.
+
+scaled_feats = scaler.transform(df.drop('TARGET CLASS',axis=1))
+#Converting the scaled features to a dataframe
+scaled_df = pd.DataFrame(scaled_feats)
+scaled_df.columns =['XVPM', 'GWYH', 'TRAT', 'TLLZ', 'IGGA', 'HYKR', 'EDFS', 'GUUB', 'MGJM',
+       'JHZC']
+scaled_df.head()
+XVPM	GWYH	TRAT	TLLZ	IGGA	HYKR	EDFS	GUUB	MGJM	JHZC
+0	1.568522	-0.443435	1.619808	-0.958255	-1.128481	0.138336	0.980493	-0.932794	1.008313	-1.069627
+1	-0.112376	-1.056574	1.741918	-1.504220	0.640009	1.081552	-1.182663	-0.461864	0.258321	-1.041546
+2	0.660647	-0.436981	0.775793	0.213394	-0.053171	2.030872	-1.240707	1.149298	2.184784	0.342811
+3	0.011533	0.191324	-1.433473	-0.100053	-1.507223	-1.753632	-1.183561	-0.888557	0.162310	-0.002793
+4	-0.099059	0.820815	-0.904346	1.609015	-0.282065	-0.365099	-1.095644	0.391419	-1.365603	0.787762
+Model Building
+#Begin with splitting the data into training and test sets
+from sklearn.model_selection import train_test_split
+X = scaled_df
+y = df['TARGET CLASS']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=101)
+Fitting our model.
+
+from sklearn.neighbors import KNeighborsClassifier
+knn = KNeighborsClassifier(n_neighbors=1)
+knn.fit(X_train,y_train)
+KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
+           metric_params=None, n_jobs=1, n_neighbors=1, p=2,
+           weights='uniform')
+Predictions and Evaluations
+predictions = knn.predict(X_test)
+from sklearn.metrics import classification_report,confusion_matrix
+print(confusion_matrix(y_test,predictions))
+[[109  43]
+ [ 41 107]]
+print(classification_report(y_test,predictions))
+             precision    recall  f1-score   support
+
+          0       0.73      0.72      0.72       152
+          1       0.71      0.72      0.72       148
+
+avg / total       0.72      0.72      0.72       300
+
+Choosing a K Value
+A major part of building a ML model with KNN, is choosing a K value to improve the performance of our model. Let's go ahead and use the elbow method to do that.
+
+We will create a loop that trains various KNN models with different k values, then keep track of the error_rate for each of these models with a list.
+
+error_rate =[]
+for i in range(1,50):
+    knn = KNeighborsClassifier(n_neighbors=i)
+    knn.fit(X_train,y_train)
+    predictions = knn.predict(X_test)
+    error_rate.append(np.mean(predictions != y_test))
+Now, to make it easier to see what values of K had lower error rates, we'll create a plot using the information from our for loop.
+
+plt.figure(figsize=(10,6))
+plt.plot(range(1,50),error_rate,color='blue', linestyle='dashed', marker='o',
+         markerfacecolor='red', markersize=10)
+plt.title('Error Rate vs. K Value')
+plt.xlabel('K')
+plt.ylabel('Error Rate')
+<matplotlib.text.Text at 0x117dc6198>
+
+Looking at the plot,31 seems to be reasonable value for K. So let's retrain the model using that.
+
+Retrain with new K Value
+knn = KNeighborsClassifier(n_neighbors=31)
+knn.fit(X_train,y_train)
+predictions = knn.predict(X_test)
+print(confusion_matrix(y_test,predictions))
+print(classification_report(y_test,predictions))
+[[123  29]
+ [ 19 129]]
+             precision    recall  f1-score   support
+
+          0       0.87      0.81      0.84       152
+          1       0.82      0.87      0.84       148
+
+avg / total       0.84      0.84      0.84       300
+
+And voila! Our model performs better!
+
+This concludes this micro-project.
+
