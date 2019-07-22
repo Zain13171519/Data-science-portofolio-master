@@ -1,0 +1,164 @@
+Machine Learning with Decision Trees and Random Forests¶
+In this project we will be exploring publicly available data from LendingClub.com. Lending Club is a service that connects borrowers with people who have money (investors). We will try to create a model that will help predict if a person has a high probability of paying the loan back.
+
+import pandas as pd
+​
+import seaborn as sns
+import matplotlib.pyplot as plt
+%matplotlib inline
+Data
+We will use lending data from 2007-2010 and try to classify and predict whether or not the borrower paid back their loan in full.
+
+The data set contains the following features:
+
+credit.policy: 1 if the customer meets the credit underwriting criteria of LendingClub.com, and 0 otherwise.
+purpose: The purpose of the loan (takes values "credit_card", "debt_consolidation", "educational", "major_purchase", "small_business", and "all_other").
+int.rate: The interest rate of the loan, as a proportion (a rate of 11% would be stored as 0.11). Borrowers judged by LendingClub.com to be more risky are assigned higher interest rates.
+installment: The monthly installments owed by the borrower if the loan is funded.
+log.annual.inc: The natural log of the self-reported annual income of the borrower.
+dti: The debt-to-income ratio of the borrower (amount of debt divided by annual income).
+fico: The FICO credit score of the borrower.
+days.with.cr.line: The number of days the borrower has had a credit line.
+revol.bal: The borrower's revolving balance (amount unpaid at the end of the credit card billing cycle).
+revol.util: The borrower's revolving line utilization rate (the amount of the credit line used relative to total credit available).
+inq.last.6mths: The borrower's number of inquiries by creditors in the last 6 months.
+delinq.2yrs: The number of times the borrower had been 30+ days past due on a payment in the past 2 years.
+pub.rec: The borrower's number of derogatory public records (bankruptcy filings, tax liens, or judgments).
+#Reading the data
+loans = pd.read_csv('data/loan_data.csv')
+loans.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 9578 entries, 0 to 9577
+Data columns (total 14 columns):
+credit.policy        9578 non-null int64
+purpose              9578 non-null object
+int.rate             9578 non-null float64
+installment          9578 non-null float64
+log.annual.inc       9578 non-null float64
+dti                  9578 non-null float64
+fico                 9578 non-null int64
+days.with.cr.line    9578 non-null float64
+revol.bal            9578 non-null int64
+revol.util           9578 non-null float64
+inq.last.6mths       9578 non-null int64
+delinq.2yrs          9578 non-null int64
+pub.rec              9578 non-null int64
+not.fully.paid       9578 non-null int64
+dtypes: float64(6), int64(7), object(1)
+memory usage: 1.0+ MB
+loans.describe()
+credit.policy	int.rate	installment	log.annual.inc	dti	fico	days.with.cr.line	revol.bal	revol.util	inq.last.6mths	delinq.2yrs	pub.rec	not.fully.paid
+count	9578.000000	9578.000000	9578.000000	9578.000000	9578.000000	9578.000000	9578.000000	9.578000e+03	9578.000000	9578.000000	9578.000000	9578.000000	9578.000000
+mean	0.804970	0.122640	319.089413	10.932117	12.606679	710.846314	4560.767197	1.691396e+04	46.799236	1.577469	0.163708	0.062122	0.160054
+std	0.396245	0.026847	207.071301	0.614813	6.883970	37.970537	2496.930377	3.375619e+04	29.014417	2.200245	0.546215	0.262126	0.366676
+min	0.000000	0.060000	15.670000	7.547502	0.000000	612.000000	178.958333	0.000000e+00	0.000000	0.000000	0.000000	0.000000	0.000000
+25%	1.000000	0.103900	163.770000	10.558414	7.212500	682.000000	2820.000000	3.187000e+03	22.600000	0.000000	0.000000	0.000000	0.000000
+50%	1.000000	0.122100	268.950000	10.928884	12.665000	707.000000	4139.958333	8.596000e+03	46.300000	1.000000	0.000000	0.000000	0.000000
+75%	1.000000	0.140700	432.762500	11.291293	17.950000	737.000000	5730.000000	1.824950e+04	70.900000	2.000000	0.000000	0.000000	0.000000
+max	1.000000	0.216400	940.140000	14.528354	29.960000	827.000000	17639.958330	1.207359e+06	119.000000	33.000000	13.000000	5.000000	1.000000
+loans.head()
+credit.policy	purpose	int.rate	installment	log.annual.inc	dti	fico	days.with.cr.line	revol.bal	revol.util	inq.last.6mths	delinq.2yrs	pub.rec	not.fully.paid
+0	1	debt_consolidation	0.1189	829.10	11.350407	19.48	737	5639.958333	28854	52.1	0	0	0	0
+1	1	credit_card	0.1071	228.22	11.082143	14.29	707	2760.000000	33623	76.7	0	0	0	0
+2	1	debt_consolidation	0.1357	366.86	10.373491	11.63	682	4710.000000	3511	25.6	1	0	0	0
+3	1	debt_consolidation	0.1008	162.34	11.350407	8.10	712	2699.958333	33667	73.2	1	0	0	0
+4	1	credit_card	0.1426	102.92	11.299732	14.97	667	4066.000000	4740	39.5	0	1	0	0
+Exploratory Data Analysis
+Using quick visualisations, we can explore the relationship between different variables in the dataset.
+
+Let's start with a dual histogram of the FICO score of the borrowers, depending on the credit policy (i.e. if a borrower met the underlying criteria).
+
+loans[loans['credit.policy']==1]['fico'].hist(bins=30,alpha=0.6,label='Credit.Policy=1')
+loans[loans['credit.policy']==0]['fico'].hist(bins=30,alpha=0.6,label='Credit.Policy=0')
+plt.legend()
+plt.xlabel('FICO')
+<matplotlib.text.Text at 0x115466a20>
+
+Checking out a similar histogram, based on the 'not.fully.paid' column.
+
+loans[loans['not.fully.paid']==1]['fico'].hist(bins=30,alpha=0.6,label='not.fully.paid=1',color='red')
+loans[loans['not.fully.paid']==0]['fico'].hist(bins=30,alpha=0.6,label='not.fully.paid=0')
+plt.legend()
+plt.xlabel('FICO')
+<matplotlib.text.Text at 0x1159bd710>
+
+Let's visualize the counts of of loan purposes, based on whether a borrower fully paid the loan back or not.
+
+plt.figure(figsize=(9,5))
+sns.countplot(loans['purpose'],hue=loans['not.fully.paid'])
+plt.tight_layout()
+
+Let's see the trend between FICO score and interest rate.
+
+sns.jointplot(x='fico',y='int.rate',data=loans)
+<seaborn.axisgrid.JointGrid at 0x115460898>
+
+Model Building
+The purpose column is categorical.
+
+That means we need to transform them using dummy variables so sklearn will be able to understand them.
+
+#Creating a list of all categorical features.
+cat_feats = ['purpose']
+final_data = pd.get_dummies(loans,columns=cat_feats,drop_first=True)
+Train Test Split
+final_data.columns
+Index(['credit.policy', 'int.rate', 'installment', 'log.annual.inc', 'dti',
+       'fico', 'days.with.cr.line', 'revol.bal', 'revol.util',
+       'inq.last.6mths', 'delinq.2yrs', 'pub.rec', 'not.fully.paid',
+       'purpose_credit_card', 'purpose_debt_consolidation',
+       'purpose_educational', 'purpose_home_improvement',
+       'purpose_major_purchase', 'purpose_small_business'],
+      dtype='object')
+X = final_data.drop('not.fully.paid',axis=1)
+y = final_data['not.fully.paid']
+from sklearn.model_selection import train_test_split
+​
+X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.3)
+Training a Decision Tree Model
+from sklearn.tree import DecisionTreeClassifier
+dtree= DecisionTreeClassifier()
+dtree.fit(X_train,y_train)
+DecisionTreeClassifier(class_weight=None, criterion='gini', max_depth=None,
+            max_features=None, max_leaf_nodes=None,
+            min_impurity_split=1e-07, min_samples_leaf=1,
+            min_samples_split=2, min_weight_fraction_leaf=0.0,
+            presort=False, random_state=None, splitter='best')
+Predictions and Evaluation of Decision Tree
+predictions = dtree.predict(X_test)
+from sklearn.metrics import classification_report,confusion_matrix
+print(classification_report(y_test,predictions))
+             precision    recall  f1-score   support
+
+          0       0.86      0.83      0.85      2432
+          1       0.20      0.23      0.21       442
+
+avg / total       0.75      0.74      0.75      2874
+
+print(confusion_matrix(y_test,predictions))
+[[2030  402]
+ [ 342  100]]
+Training the Random Forest model
+from sklearn.ensemble import RandomForestClassifier
+rfc = RandomForestClassifier()
+rfc.fit(X_train,y_train)
+RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini',
+            max_depth=None, max_features='auto', max_leaf_nodes=None,
+            min_impurity_split=1e-07, min_samples_leaf=1,
+            min_samples_split=2, min_weight_fraction_leaf=0.0,
+            n_estimators=10, n_jobs=1, oob_score=False, random_state=None,
+            verbose=0, warm_start=False)
+Predictions and Evaluation of Random Forest
+predictions = rfc.predict(X_test)
+print(classification_report(y_test,predictions))
+             precision    recall  f1-score   support
+
+          0       0.85      0.98      0.91      2432
+          1       0.30      0.06      0.10       442
+
+avg / total       0.77      0.83      0.78      2874
+
+print(confusion_matrix(y_test,predictions))
+[[2372   60]
+ [ 416   26]]
+We can see that the random forest performed somewhat better than the decision tree model.
